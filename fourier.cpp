@@ -71,7 +71,7 @@ main( int argc, char *argv[ ] )
 
 	// decide how much data to send to each processor:
 
-	PPSize    = NUMELEMENTS / NumCpus
+	PPSize    = NUMELEMENTS / NumCpus;
 
 	// local arrays:
 
