@@ -148,8 +148,7 @@ int main(int argc, char *argv[])
 else
 {
 	// have everyone else receive from the BOSS:
-		MPI_Recv(PPSignal, PPSize, MPI_FLOAT, BOSS, TAG_SCATTER, MPI_COMM_WORLD, &status);
-
+	MPI_Recv(PPSignal, PPSize, MPI_FLOAT, BOSS, TAG_SCATTER, MPI_COMM_WORLD, &status);
 }
 
 // each processor does its own autocorrelation:
@@ -160,33 +159,33 @@ DoOneLocalFourier(me);
 
 if (me == BOSS)
 {
-		// get the BOSS's sums:
-		for (int s = 0; s < MAXPERIODS; s++)
-		{
-			BigSums[s] = PPSums[s]; // start the overall sums with the BOSS's sums
-		}
+	// get the BOSS's sums:
+	for (int s = 0; s < MAXPERIODS; s++)
+	{
+		BigSums[s] = PPSums[s]; // start the overall sums with the BOSS's sums
+	}
 }
 else
 {
-		// each processor sends its sums back to the BOSS:
-		MPI_Send(PPSums, MAXPERIODS, MPI_FLOAT, BOSS, TAG_GATHER, MPI_COMM_WORLD);
+	// each processor sends its sums back to the BOSS:
+	MPI_Send(PPSums, MAXPERIODS, MPI_FLOAT, BOSS, TAG_GATHER, MPI_COMM_WORLD);
 }
 
 // the BOSS receives the sums and adds them into the overall sums:
 
 if (me == BOSS)
 {
-		float tmpSums[MAXPERIODS];
-		for (int src = 0; src < NumCpus; src++)
-		{
-			if (src == BOSS)
-				continue;
+	float tmpSums[MAXPERIODS];
+	for (int src = 0; src < NumCpus; src++)
+	{
+		if (src == BOSS)
+			continue;
 
-			// the BOSS receives everyone else's sums:
-			MPI_Recv(tmpSums, MAXPERIODS, MPI_FLOAT, src, TAG_GATHER, MPI_COMM_WORLD, &status);
-			for (int s = 0; s < MAXPERIODS; s++)
-				BigSums[s] += tmpSums[s];
-		}
+		// the BOSS receives everyone else's sums:
+		MPI_Recv(tmpSums, MAXPERIODS, MPI_FLOAT, src, TAG_GATHER, MPI_COMM_WORLD, &status);
+		for (int s = 0; s < MAXPERIODS; s++)
+			BigSums[s] += tmpSums[s];
+	}
 }
 
 // stop the timer:
@@ -197,29 +196,29 @@ double time1 = MPI_Wtime();
 
 if (me == BOSS)
 {
-		double seconds = time1 - time0;
-		double performance = (double)NumCpus * (double)MAXPERIODS * (double)PPSize / seconds / 1000000.; // mega-mults computed per second
-		fprintf(stderr, "%3d processors, %10d elements, %9.2lf mega-multiplies computed per second\n",
-				NumCpus, NUMELEMENTS, performance);
+	double seconds = time1 - time0;
+	double performance = (double)NumCpus * (double)MAXPERIODS * (double)PPSize / seconds / 1000000.; // mega-mults computed per second
+	fprintf(stderr, "%3d processors, %10d elements, %9.2lf mega-multiplies computed per second\n",
+			NumCpus, NUMELEMENTS, performance);
 }
 
 // write the file to be plotted to look for the secret sine wave:
 
 if (me == BOSS)
 {
-		FILE *fp = fopen(CSVPLOTFILE, "w");
-		if (fp == NULL)
+	FILE *fp = fopen(CSVPLOTFILE, "w");
+	if (fp == NULL)
+	{
+		fprintf(stderr, "Cannot write to plot file '%s'\n", CSVPLOTFILE);
+	}
+	else
+	{
+		for (int s = 1; s < MAXPERIODS; s++) // BigSums[0] is huge -- don't use it
 		{
-			fprintf(stderr, "Cannot write to plot file '%s'\n", CSVPLOTFILE);
+			fprintf(fp, "%6d , %10.2f\n", s, BigSums[s]);
 		}
-		else
-		{
-			for (int s = 1; s < MAXPERIODS; s++) // BigSums[0] is huge -- don't use it
-			{
-				fprintf(fp, "%6d , %10.2f\n", s, BigSums[s]);
-			}
-			fclose(fp);
-		}
+		fclose(fp);
+	}
 }
 
 // all done:
@@ -232,24 +231,24 @@ return 0;
 
 void DoOneLocalFourier(int me)
 {
-		MPI_Status status;
+	MPI_Status status;
 
-		if (DEBUG)
-			fprintf(stderr, "Node %3d entered DoOneLocalFourier( )\n", me);
+	if (DEBUG)
+		fprintf(stderr, "Node %3d entered DoOneLocalFourier( )\n", me);
 
-		for (int p = 1; p < MAXPERIODS; p++)
+	for (int p = 1; p < MAXPERIODS; p++)
+	{
+		PPSums[p] = 0.;
+	}
+
+	for (int p = 1; p < MAXPERIODS; p++)
+	{
+		float omega = F_2_PI / (float)p;
+		;
+		for (int t = 0; t < PPSize; t++)
 		{
-			PPSums[p] = 0.;
+			float time = (float)(t + me * PPSize);
+			PPSums[p] += PPSignal[t] * sinf(omega * time);
 		}
-
-		for (int p = 1; p < MAXPERIODS; p++)
-		{
-			float omega = F_2_PI / (float)p;
-			;
-			for (int t = 0; t < PPSize; t++)
-			{
-				float time = (float)(t + me * PPSize);
-				PPSums[p] += PPSignal[t] * sinf(omega * time);
-			}
-		}
+	}
 }
